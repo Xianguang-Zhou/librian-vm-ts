@@ -1,0 +1,31 @@
+{
+	"name": "librian-vm-ts",
+	"description": "Librian VM for TypeScript.",
+	"version": "0.0.1",
+	"author": {
+		"name": "Xianguang Zhou",
+		"email": "xianguang.zhou@outlook.com",
+		"url": "https://github.com/Xianguang-Zhou"
+	},
+	"license": "MPL-2.0",
+	"homepage": "https://github.com/Xianguang-Zhou/librian-vm-ts",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Xianguang-Zhou/librian-vm-ts.git"
+	},
+	"scripts": {
+		"build": "tsc"
+	},
+	"files": [
+		"lib/"
+	],
+	"main": "./lib/parser.js",
+	"typings": "./lib/parser.d.ts",
+	"dependencies": {},
+	"devDependencies": {
+		"typescript": "^3.7.5"
+	},
+	"engines": {
+		"node": ">=10.14.1"
+	}
+}
