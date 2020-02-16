@@ -1,3 +1,5 @@
+export type Dict<T> = {[key: string]: T};
+
 class Statement {
 
 	public readonly type: string;
@@ -141,26 +143,26 @@ export class Parser {
 
 	private static readonly nonBlankPattern: RegExp = /\S/g;
 
-	public parse(source: string): Array<Map<string, string | Array<Map<string, string>> | number>> {
+	public parse(source: string): Array<Dict<string | Array<Dict<string>> | number>> {
 		const lines = source.split('\n').filter(line => line.length > 0);
 		return this.parseLines(lines);
 	}
 
-	private parseLines(lines: Array<string>): Array<Map<string, string | Array<Map<string, string>> | number>> {
-		const nodes: Array<Map<string, string | Array<Map<string, string>> | number>> = [];
+	private parseLines(lines: Array<string>): Array<Dict<string | Array<Dict<string>> | number>> {
+		const nodes: Array<Dict<string | Array<Dict<string>> | number>> = [];
 		let linesBuffer = '';
 		for (const currentLineIndex in lines) {
 			let currentLine = lines[currentLineIndex];
 			if (!Parser.nonBlankPattern.test(currentLine)) {
 				if (nodes.length > 0) {
 					const lastLine = nodes.length - 1;
-					let lastBlank: number | undefined = nodes[lastLine].get('lastBlank') as number;
+					let lastBlank: number | undefined = nodes[lastLine]['lastBlank'] as number;
 					if (lastBlank === undefined) {
 						lastBlank = 1;
 					} else {
 						++lastBlank;
 					}
-					nodes[lastLine].set('lastBlank', lastBlank);
+					nodes[lastLine]['lastBlank'] = lastBlank;
 				}
 				continue;
 			}
@@ -177,11 +179,9 @@ export class Parser {
 				continue;
 			}
 
-			const lineNode = new Map<string, string
-				| Array<Map<string, string>> | number>();
-			lineNode.set('indentSize',
-				currentLine.length
-				- stringLstrip(currentLine, ' ').length);
+			const lineNode: Dict<string | Array<Dict<string>> | number> = {};
+			lineNode['indentSize'] = currentLine.length
+				- stringLstrip(currentLine, ' ').length;
 
 			currentLine = stringRstrip(stringLstrip(currentLine, ' '), ' ');
 			Parser.errorGroup.forEach(errorCondition => {
@@ -197,19 +197,19 @@ export class Parser {
 			if (matchedStatements.length > 1) {
 				throw new LibrianSyntaxError(`"${currentLine}" matched too many statements. The statements may be ${matchedStatements.map(i => '"' + i.get('type') + '"').join(', ')}.`);
 			}
-			matchedStatements[0].forEach((value, key) => lineNode.set(key, value));
+			matchedStatements[0].forEach((value, key) => lineNode[key] = value);
 			nodes.push(lineNode);
 		}
 		return nodes;
 	}
 
 	private matchStatements(line: string): Array<Map<string, string
-		| Array<Map<string, string>> | number>> {
+		| Array<Dict<string>> | number>> {
 		const matchedStatements: Array<Map<string, string
-			| Array<Map<string, string>> | number>> = [];
+			| Array<Dict<string>> | number>> = [];
 		Parser.statementGroup.forEach(rule => {
 			patternFindAll(rule.pattern, line).forEach(element => {
-				const groupMap: Map<string, string | Array<Map<string, string>>> = groupsObjectToMap(element.groups);
+				const groupMap: Map<string, string | Array<Dict<string>>> = groupsObjectToMap(element.groups);
 				groupMap.set('type', rule.type);
 				if (rule.children != null) {
 					rule.children.forEach((childPattern, childType) =>
@@ -221,24 +221,13 @@ export class Parser {
 		return matchedStatements;
 	}
 
-	private matchChild(pattern: RegExp, lineElement: string): Array<Map<string, string>> {
-		const matchedElements: Array<Map<string, string>> = [];
+	private matchChild(pattern: RegExp, lineElement: string): Array<Dict<string>> {
+		const matchedElements: Array<Dict<string>> = [];
 		patternFindAll(pattern, lineElement).forEach(element => {
 			if (element.groups != null) {
-				matchedElements.push(groupsObjectToMap(element.groups));
+				matchedElements.push(element.groups);
 			}
 		});
 		return matchedElements;
 	}
-}
-
-export function stringify(nodes: any, space?: number | string | undefined): string {
-	return JSON.stringify(nodes, (_propertyName, propertyValue) => {
-		if (propertyValue instanceof Map) {
-			const obj: {[key: string]: unknown} = {};
-			propertyValue.forEach((value, key) => obj[key] = value);
-			return obj;
-		}
-		return propertyValue;
-	}, space);
 }
