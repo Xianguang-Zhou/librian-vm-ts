@@ -1,4 +1,5 @@
 export type Dict<T> = {[key: string]: T};
+export type Node = Dict<string | Array<Dict<string>> | number>;
 
 class Statement {
 
@@ -143,13 +144,13 @@ export class Parser {
 
 	private static readonly nonBlankPattern: RegExp = /\S/g;
 
-	public parse(source: string): Array<Dict<string | Array<Dict<string>> | number>> {
+	public parse(source: string): Array<Node> {
 		const lines = source.split('\n').filter(line => line.length > 0);
 		return this.parseLines(lines);
 	}
 
-	private parseLines(lines: Array<string>): Array<Dict<string | Array<Dict<string>> | number>> {
-		const nodes: Array<Dict<string | Array<Dict<string>> | number>> = [];
+	private parseLines(lines: Array<string>): Array<Node> {
+		const nodes: Array<Node> = [];
 		let linesBuffer = '';
 		for (const currentLineIndex in lines) {
 			let currentLine = lines[currentLineIndex];
@@ -179,7 +180,7 @@ export class Parser {
 				continue;
 			}
 
-			const lineNode: Dict<string | Array<Dict<string>> | number> = {};
+			const lineNode: Node = {};
 			lineNode['indentSize'] = currentLine.length
 				- stringLstrip(currentLine, ' ').length;
 
