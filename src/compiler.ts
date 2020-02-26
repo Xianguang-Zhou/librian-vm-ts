@@ -103,13 +103,13 @@ export class Option {
 export class ChoiceInstruction extends Instruction {
 
 	public constructor(public readonly options: Array<Option>,
-		isDisposable = false) {
+		isDisposable = false, public readonly isEmbeddedCode = false) {
 		super('choice', isDisposable);
 	}
 
 	public static fromNodes(nodes: Array<Node>,
 		isDisposable = false): ChoiceInstruction {
 		return new ChoiceInstruction(
-			nodes.map(node => Option.fromNode(node)), isDisposable);
+			nodes.map(node => Option.fromNode(node)), isDisposable, false);
 	}
 }

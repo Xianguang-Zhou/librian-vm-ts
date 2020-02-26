@@ -200,8 +200,16 @@ export class VM {
 			if (selectedOption == null) {
 				throw new VmError('"input.optionIndex" is out of range.');
 			}
-			currentFrame.insertInstructions([new CallInstruction(
-				selectedOption.path, selectedOption.tag, true)]);
+			if (this.choice.isEmbeddedCode) {
+				currentFrame.insertInstructions([new NodeInstruction({
+					'type': 'embeddedCode',
+					'codeType': selectedOption.tag as string,
+					'codeContent': selectedOption.path as string
+				}, true)]);
+			} else {
+				currentFrame.insertInstructions([new CallInstruction(
+					selectedOption.path, selectedOption.tag, true)]);
+			}
 			this.choice = null;
 		}
 
@@ -242,6 +250,7 @@ export class VM {
 				case 'embeddedCode': {
 					const currentNode = (currentInstruction as NodeInstruction).node;
 					const codeContent = currentNode['codeContent'] as string;
+					const codeType = currentNode['codeType'] as string;
 					const generatedInstructions: Array<Instruction> = [];
 					evaluate(codeContent, {
 						'fusion': (source: string) => {
@@ -253,10 +262,15 @@ export class VM {
 							generatedInstructions.push(new GotoInstruction(
 								path, tag, true));
 						},
-						'choice': (...options: Array<[string, string, string]>) => {
+						'options': (...options: Array<[string, string, string]>) => {
 							generatedInstructions.push(new ChoiceInstruction(
 								options.map(tuple => new Option(
-									tuple[0], tuple[1], tuple[2])), true));
+									tuple[0], tuple[1], tuple[2])), true, false));
+						},
+						'choice': (...options: Array<[string, string]>) => {
+							generatedInstructions.push(new ChoiceInstruction(
+								options.map(tuple => new Option(
+									tuple[0], tuple[1], codeType)), true, true));
 						},
 						'adv_end': () => {
 							generatedInstructions.push(new AdvEndInstruction(true));
