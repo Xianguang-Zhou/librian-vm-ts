@@ -15,8 +15,24 @@ export class Module {
 
 export abstract class Environment {
 
-	public async abstract modulePathEquals(p1: string, p2: string)
-		: Promise<boolean>;
+	protected abstract modulePathEqualsCallback(
+		targetModulePath: string,
+		currentModulePath: string,
+		callback: (isEqual: boolean) => void,
+		failureCallback: (reason: any) => void
+	): void;
+
+	public async modulePathEquals(targetModulePath: string,
+		currentModulePath: string): Promise<boolean> {
+		return new Promise((resolve, reject) => {
+			try {
+				this.modulePathEqualsCallback(targetModulePath, currentModulePath,
+					resolve, reject);
+			} catch (ex) {
+				reject(ex);
+			}
+		});
+	}
 
 	protected abstract loadModuleCallback(
 		targetModulePath: string,
@@ -52,7 +68,7 @@ export class Aside extends PausePoint {
 	}
 }
 
-export class RoleDialog extends PausePoint {
+export class CharacterDialog extends PausePoint {
 
 	public name: string;
 	public alias: string;
@@ -104,20 +120,20 @@ export class FunctionCalling {
 	}
 }
 
-export class RoleOperation {
+export class CharacterOperation {
 
-	public roleName: string;
+	public characterName: string;
 	public operator: string;
 	public target: string;
 
 	public constructor(node: Node) {
-		this.roleName = node['roleName'] as string;
+		this.characterName = node['characterName'] as string;
 		this.operator = node['operator'] as string;
 		this.target = node['target'] as string;
 	}
 }
 
-export class RoleExpression {
+export class CharacterExpression {
 
 	public name: string;
 	public alias: string;
@@ -147,8 +163,8 @@ export class Output {
 
 	public pausePoint: PausePoint | null = null;
 	public functionCallings: Map<String, FunctionCalling> = new Map();
-	public roleOperation: RoleOperation | null = null;
-	public roleExpression: RoleExpression | null = null;
+	public characterOperation: CharacterOperation | null = null;
+	public characterExpression: CharacterExpression | null = null;
 	public scene: Scene | null = null;
 
 	public addFunctionCalling(calling: FunctionCalling): void {
@@ -164,7 +180,11 @@ export class Input {
 export class VM {
 
 	private readonly stack: Array<Frame> = [];
+
 	private choice: ChoiceInstruction | null = null;
+
+	private embeddedCodeType = '';
+	private readonly generatedInstructions: Array<Instruction> = [];
 
 	public constructor(startModule: Module, private readonly compiler: Compiler,
 		private readonly env: Environment) {
@@ -203,12 +223,12 @@ export class VM {
 			if (this.choice.isEmbeddedCode) {
 				currentFrame.insertInstructions([new NodeInstruction({
 					'type': 'embeddedCode',
-					'codeType': selectedOption.tag as string,
-					'codeContent': selectedOption.path as string
+					'codeType': selectedOption.tagOrCodeType as string,
+					'codeContent': selectedOption.pathOrCodeContent as string
 				}, true)]);
 			} else {
 				currentFrame.insertInstructions([new CallInstruction(
-					selectedOption.path, selectedOption.tag, true)]);
+					selectedOption.pathOrCodeContent, selectedOption.tagOrCodeType, true)]);
 			}
 			this.choice = null;
 		}
@@ -250,54 +270,54 @@ export class VM {
 				case 'embeddedCode': {
 					const currentNode = (currentInstruction as NodeInstruction).node;
 					const codeContent = currentNode['codeContent'] as string;
-					const codeType = currentNode['codeType'] as string;
-					const generatedInstructions: Array<Instruction> = [];
+					this.embeddedCodeType = currentNode['codeType'] as string;
 					evaluate(codeContent, {
 						'fusion': (source: string) => {
-							generatedInstructions.push(...this.compiler.
+							this.generatedInstructions.push(...this.compiler.
 								compile(source, true));
 						},
 						'goto': (path: string | null = null,
 							tag: string | null = null) => {
-							generatedInstructions.push(new GotoInstruction(
+							this.generatedInstructions.push(new GotoInstruction(
 								path, tag, true));
 						},
 						'options': (...options: Array<[string, string, string]>) => {
-							generatedInstructions.push(new ChoiceInstruction(
+							this.generatedInstructions.push(new ChoiceInstruction(
 								options.map(tuple => new Option(
 									tuple[0], tuple[1], tuple[2])), true, false));
 						},
 						'choice': (...options: Array<[string, string]>) => {
-							generatedInstructions.push(new ChoiceInstruction(
+							this.generatedInstructions.push(new ChoiceInstruction(
 								options.map(tuple => new Option(
-									tuple[0], tuple[1], codeType)), true, true));
+									tuple[0], tuple[1], this.embeddedCodeType)), true, true));
 						},
 						'adv_end': () => {
-							generatedInstructions.push(new AdvEndInstruction(true));
+							this.generatedInstructions.push(new AdvEndInstruction(true));
 						},
 						'call': (path: string | null = null,
 							tag: string | null = null) => {
-							generatedInstructions.push(new CallInstruction(
+							this.generatedInstructions.push(new CallInstruction(
 								path, tag, true));
 						}
 					});
-					currentFrame.insertInstructions(generatedInstructions);
+					currentFrame.insertInstructions(this.generatedInstructions);
+					this.generatedInstructions.splice(0);
 				} break;
-				case 'roleOperation': {
+				case 'characterOperation': {
 					const currentNode = (currentInstruction as NodeInstruction).node;
-					output.roleOperation = new RoleOperation(currentNode);
+					output.characterOperation = new CharacterOperation(currentNode);
 				} break;
 				case 'insertedImage': {
 					const currentNode = (currentInstruction as NodeInstruction).node;
 					output.pausePoint = new InsertedImage(currentNode);
 				} break;
-				case 'roleDialog': {
+				case 'characterDialog': {
 					const currentNode = (currentInstruction as NodeInstruction).node;
-					output.pausePoint = new RoleDialog(currentNode);
+					output.pausePoint = new CharacterDialog(currentNode);
 				} break;
-				case 'roleExpression': {
+				case 'characterExpression': {
 					const currentNode = (currentInstruction as NodeInstruction).node;
-					output.roleExpression = new RoleExpression(currentNode);
+					output.characterExpression = new CharacterExpression(currentNode);
 				} break;
 				case 'scene': {
 					const currentNode = (currentInstruction as NodeInstruction).node;

@@ -89,8 +89,8 @@ export class AdvEndInstruction extends Instruction {
 export class Option {
 
 	public constructor(public readonly name: string,
-		public readonly path: string | null = null,
-		public readonly tag: string | null = null) {
+		public readonly pathOrCodeContent: string | null = null,
+		public readonly tagOrCodeType: string | null = null) {
 	}
 
 	public static fromNode(node: Node): Option {
