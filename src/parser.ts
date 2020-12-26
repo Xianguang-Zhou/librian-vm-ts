@@ -12,7 +12,7 @@ class Statement {
 			| null = null) {
 		this.type = type;
 		if (typeof pattern === 'string') {
-			pattern = r(pattern);
+			pattern = re(pattern);
 		}
 		this.pattern = pattern;
 		if (children !== null) {
@@ -34,7 +34,7 @@ class ErrorCondition {
 	public constructor(prompt: string, pattern: RegExp | string) {
 		this.prompt = prompt;
 		if (typeof pattern === 'string') {
-			pattern = r(pattern);
+			pattern = re(pattern);
 		}
 		this.pattern = pattern;
 	}
@@ -74,7 +74,9 @@ function stringLstrip(str: string, chars = ' \t\r\n'): string {
 	return str.substring(index - 1);
 }
 
-function r(s: string): RegExp {
+const r = String.raw;
+
+function re(s: string): RegExp {
 	return RegExp(s, 'g');
 }
 
@@ -107,6 +109,8 @@ function groupsObjectToMap(obj: {[key: string]: string} | undefined | null): Map
 
 export class Parser {
 
+	private static readonly identifier: string = r`[^\#\>\"\+\-\=\ ]+?`;
+
 	private static readonly statementGroup: Array<Statement> = [
 		new Statement('functionCalling',
 			/^> *(?<originalText>(?<function>\S*)(?<parameterList>(.*)))$/g, [
@@ -114,27 +118,31 @@ export class Parser {
 				/(?<a>(((?<=").*?(?="))|(((?<= )|(?<=^))([^" ]+?)(?=( |$)))))/g]
 		]),
 		new Statement('embeddedCode',
-			/^```(?<codeType>.*?)\n(?<codeContent>(.|\n)*?)\n```$/g),
+			/^```(?<codeType>.*?)\n((?<codeContent>(.|\n)*?)\n)?```$/g),
 		new Statement('characterOperation',
-			/^@ *(?<characterName>.+?) *(?<operator>[\+\|]) *(?<target>.+?)$/g),
+			r`^@ *(?<characterName>${Parser.identifier}) *(?<operator>[\+\|]) *(?<target>${Parser.identifier})$`),
 		new Statement('insertedImage',
 			/^={3,} *(?<insertedImage>.*) *$/g),
 		new Statement('characterDialog',
-			/^(?=[^#])(?<name>.+?)(\|(?<alias>.+?))? +(\[(?<effect>.+?)\])? *(\((?<expression>.+?)\))? *(「|“)(?<dialog>(.|\n)*?)(”|」) *$/g),
+			r`^(?=[^#:])(?<name>${Parser.identifier})(\|(?<alias>${Parser.identifier}))? *(\[(?<effect>${Parser.identifier})\])? *(\((?<expression>${Parser.identifier})\))? *[「“"](?<dialog>(.|\n)*?)["”」] *$`),
+		new Statement('characterDialog',
+			r`^(?=[^#:])(?<name>${Parser.identifier})(\|(?<alias>${Parser.identifier}))? *(\[(?<effect>${Parser.identifier})\])? *(\((?<expression>${Parser.identifier})\))? *[🐴：:] *(?<dialog>(.|\n)*?) *$`),
 		new Statement('characterExpression',
-			/^(?<name>.+?)(\|(?<alias>.+?))?  *(\[(?<effect>.+?)\])? *(\((?<expression>.+?)\)) *$/g),
+			r`^(?<name>${Parser.identifier})(\|(?<alias>${Parser.identifier}))?  +(\[(?<effect>${Parser.identifier})\])? *(\((?<expression>${Parser.identifier})\)) *$`),
 		new Statement('scene',
 			/^(?<sceneOperator>[\+\-]) *(?<content>.*)$/g),
 		new Statement('option',
-			/^\? +(?<optionName>.+?) *-> *(?<file>.+?)(, *(?<location>.*?))?$/g),
+			r`^\? +(?<optionName>${Parser.identifier}) *-> *(?<file>${Parser.identifier})(, *(?<location>${Parser.identifier}))?$`),
 		new Statement('comment',
 			/^#(?<comment>.*)$/g),
+		new Statement('aside', /^: *(?<aside>.*)$/g),
 		new Statement('jumpPoint',
 			/^\* *(?<jumpPoint>.*)$/g)
 	];
 
 	private static readonly continuedLineGroup: Array<RegExp> = [
-		/^(?=[^#])(.+?)(\|(.+?))? +(\[(?<effect>.+?)\])? *(\((.+?)\))?「([^」]*)$/g,
+		/^(?<effectiveWord>(.|\n)*)\\$/g,
+		re(r`^(?=[^#])(${Parser.identifier})(\|(${Parser.identifier}))? +(\[(?<effect>${Parser.identifier})\])? *(\((${Parser.identifier})\))?「([^」]*)$`),
 		/^```(.|\n)*(?<!\n```)$/g
 	];
 
@@ -146,7 +154,12 @@ export class Parser {
 
 	public parse(source: string): Array<Node> {
 		const lines = source.split('\n').filter(line => line.length > 0);
-		return this.parseLines(lines);
+		lines.push('');
+		const nodes = this.parseLines(lines);
+		if (nodes.length > 0) {
+			delete nodes[nodes.length - 1]['lastBlank'];
+		}
+		return nodes;
 	}
 
 	private parseLines(lines: Array<string>): Array<Node> {
@@ -173,9 +186,18 @@ export class Parser {
 				currentLine = linesBuffer + '\n' + currentLine;
 				linesBuffer = '';
 			}
-			if (Parser.continuedLineGroup.filter(
-				pattern => patternMatch(pattern, currentLine)).length > 0) {
-				linesBuffer = currentLine;
+			const matchedContinuedLinePatterns = Parser.continuedLineGroup.filter(
+				pattern => patternMatch(pattern, currentLine));
+			if (matchedContinuedLinePatterns.length > 0) {
+				let effectiveWord: string | null = null;
+				const groups = patternFindAll(matchedContinuedLinePatterns[0], currentLine)[0].groups;
+				for (const name in groups) {
+					if ('effectiveWord' === name) {
+						effectiveWord = groups['effectiveWord'];
+						break;
+					}
+				}
+				linesBuffer = effectiveWord != null ? effectiveWord : currentLine;
 				console.debug(linesBuffer);
 				continue;
 			}

@@ -1,7 +1,7 @@
 {
 	"name": "librian-vm-ts",
-	"description": "Librian VM for TypeScript.",
-	"version": "0.0.1",
+	"description": "Librian virtual machine written in TypeScript.",
+	"version": "1.0.0",
 	"author": {
 		"name": "Xianguang Zhou",
 		"email": "xianguang.zhou@outlook.com",
@@ -23,9 +23,9 @@
 	"typings": "./lib/parser.d.ts",
 	"dependencies": {},
 	"devDependencies": {
-		"typescript": "^3.7.5"
+		"typescript": "^4.1.3"
 	},
 	"engines": {
-		"node": ">=10.14.1"
+		"node": ">=14.15.3"
 	}
 }
