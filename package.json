@@ -14,7 +14,7 @@
 		"url": "https://github.com/Xianguang-Zhou/librian-vm-ts.git"
 	},
 	"scripts": {
-		"build": "tsc"
+		"build": "./node_modules/typescript/bin/tsc"
 	},
 	"files": [
 		"lib/"
