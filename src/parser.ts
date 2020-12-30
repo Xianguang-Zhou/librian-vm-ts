@@ -1,3 +1,5 @@
+import {trimEnd, trimStart} from 'lodash';
+
 export type Dict<T> = {[key: string]: T};
 export type Node = Dict<string | Array<Dict<string>> | number>;
 
@@ -43,35 +45,11 @@ class ErrorCondition {
 export class LibrianSyntaxError extends Error {}
 
 function stringRstrip(str: string, chars = ' \t\r\n'): string {
-	const codes: Array<number> = [];
-	let index = 0;
-	while (index < chars.length) {
-		codes.push(chars.charCodeAt(index++));
-	}
-	index = str.length;
-	while (index > 0) {
-		const strCode = str.charCodeAt(--index);
-		if (!(strCode in codes)) {
-			break;
-		}
-	}
-	return str.substring(0, index + 1);
+	return trimEnd(str, chars);
 }
 
 function stringLstrip(str: string, chars = ' \t\r\n'): string {
-	const codes: Array<number> = [];
-	let index = 0;
-	while (index < chars.length) {
-		codes.push(chars.charCodeAt(index++));
-	}
-	index = 0;
-	while (index < str.length) {
-		const strCode = str.charCodeAt(index++);
-		if (!(strCode in codes)) {
-			break;
-		}
-	}
-	return str.substring(index - 1);
+	return trimStart(str, chars);
 }
 
 const r = String.raw;
@@ -97,6 +75,14 @@ function patternFindAll(pattern: RegExp, str: string): Array<RegExpExecArray> {
 		result = pattern.exec(str);
 	}
 	return results;
+}
+
+function patternTest(pattern: RegExp, str: string): boolean {
+	if (pattern.test(str)) {
+		pattern.lastIndex = 0;
+		return true;
+	}
+	return false;
 }
 
 function groupsObjectToMap(obj: {[key: string]: string} | undefined | null): Map<string, string> {
@@ -153,13 +139,11 @@ export class Parser {
 	private static readonly nonBlankPattern: RegExp = /\S/g;
 
 	public parse(source: string): Array<Node> {
-		const lines = source.split('\n').filter(line => line.length > 0);
-		lines.push('');
-		const nodes = this.parseLines(lines);
-		if (nodes.length > 0) {
-			delete nodes[nodes.length - 1]['lastBlank'];
+		const lines = source.split('\n');
+		while (lines.length > 0 && 0 === lines[lines.length - 1].length) {
+			lines.pop();
 		}
-		return nodes;
+		return this.parseLines(lines);
 	}
 
 	private parseLines(lines: Array<string>): Array<Node> {
@@ -167,7 +151,7 @@ export class Parser {
 		let linesBuffer = '';
 		for (const currentLineIndex in lines) {
 			let currentLine = lines[currentLineIndex];
-			if (!Parser.nonBlankPattern.test(currentLine)) {
+			if (!patternTest(Parser.nonBlankPattern, currentLine)) {
 				if (nodes.length > 0) {
 					const lastLine = nodes.length - 1;
 					let lastBlank: number | undefined = nodes[lastLine]['lastBlank'] as number;
