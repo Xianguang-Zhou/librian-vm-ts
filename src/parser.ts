@@ -114,7 +114,7 @@ export class Parser {
 		new Statement('characterDialog',
 			r`^(?=[^#:])(?<name>${Parser.identifier})(\|(?<alias>${Parser.identifier}))? *(\[(?<effect>${Parser.identifier})\])? *(\((?<expression>${Parser.identifier})\))? *[🐴：:] *(?<dialog>(.|\n)*?) *$`),
 		new Statement('characterExpression',
-			r`^(?<name>${Parser.identifier})(\|(?<alias>${Parser.identifier}))?  +(\[(?<effect>${Parser.identifier})\])? *(\((?<expression>${Parser.identifier})\)) *$`),
+			r`^(?<name>${Parser.identifier})(\|(?<alias>${Parser.identifier}))? +(\[(?<effect>${Parser.identifier})\])? *(\((?<expression>${Parser.identifier})\)) *$`),
 		new Statement('scene',
 			/^(?<sceneOperator>[\+\-]) *(?<content>.*)$/g),
 		new Statement('option',
